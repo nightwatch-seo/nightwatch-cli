@@ -1,0 +1,17 @@
+# Build artifacts
+nightwatch
+dist/
+
+# Environment / secrets
+.env
+*.pem
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
