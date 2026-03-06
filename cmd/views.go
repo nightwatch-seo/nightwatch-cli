@@ -128,7 +128,7 @@ var viewsCreateCmd = &cobra.Command{
 Required flags:
   --name       Name for the view
 
-Optional flags (one of):
+Scope (at least one required):
   --url-id     Scope the view to a specific URL
   --group-id   Scope the view to a URL group
 
@@ -142,14 +142,21 @@ Examples:
 			return &exitError{code: 1}
 		}
 
+		urlID, _ := cmd.Flags().GetString("url-id")
+		groupID, _ := cmd.Flags().GetString("group-id")
+		if urlID == "" && groupID == "" {
+			output.PrintErrorTyped(os.Stderr, "one of --url-id or --group-id is required", 1, client.ErrorTypeValidation)
+			return &exitError{code: 1}
+		}
+
 		viewData := map[string]any{
 			"name": name,
 		}
-		if v, _ := cmd.Flags().GetString("url-id"); v != "" {
-			viewData["search_keyword_url_id"] = v
+		if urlID != "" {
+			viewData["search_keyword_url_id"] = urlID
 		}
-		if v, _ := cmd.Flags().GetString("group-id"); v != "" {
-			viewData["url_group_id"] = v
+		if groupID != "" {
+			viewData["url_group_id"] = groupID
 		}
 
 		body := map[string]any{"dynamic_view": viewData}

@@ -298,3 +298,14 @@ func parseResponseData(body []byte) (any, error) {
 	}
 	return data, nil
 }
+
+// validateDate checks that a date string is in YYYY-MM-DD format and
+// represents a valid calendar date. Returns a validation exitError on failure.
+func validateDate(flagName, value string) error {
+	if _, err := time.Parse("2006-01-02", value); err != nil {
+		msg := fmt.Sprintf("invalid %s %q: expected YYYY-MM-DD format", flagName, value)
+		output.PrintErrorTyped(os.Stderr, msg, 1, client.ErrorTypeValidation)
+		return &exitError{code: 1}
+	}
+	return nil
+}

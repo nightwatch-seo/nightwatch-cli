@@ -49,9 +49,15 @@ Examples:
 			output.PrintErrorTyped(os.Stderr, "--start-date is required (YYYY-MM-DD)", 1, client.ErrorTypeValidation)
 			return &exitError{code: 1}
 		}
+		if err := validateDate("--start-date", startDate); err != nil {
+			return err
+		}
 		if endDate == "" {
 			output.PrintErrorTyped(os.Stderr, "--end-date is required (YYYY-MM-DD)", 1, client.ErrorTypeValidation)
 			return &exitError{code: 1}
+		}
+		if err := validateDate("--end-date", endDate); err != nil {
+			return err
 		}
 
 		urlID, _ := cmd.Flags().GetString("url-id")

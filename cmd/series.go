@@ -52,9 +52,15 @@ Examples:
 			output.PrintErrorTyped(os.Stderr, "--date-from is required (YYYY-MM-DD)", 1, client.ErrorTypeValidation)
 			return &exitError{code: 1}
 		}
+		if err := validateDate("--date-from", dateFrom); err != nil {
+			return err
+		}
 		if dateTo == "" {
 			output.PrintErrorTyped(os.Stderr, "--date-to is required (YYYY-MM-DD)", 1, client.ErrorTypeValidation)
 			return &exitError{code: 1}
+		}
+		if err := validateDate("--date-to", dateTo); err != nil {
+			return err
 		}
 
 		q := url.Values{}

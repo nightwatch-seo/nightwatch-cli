@@ -80,19 +80,11 @@ func (c *Client) Get(ctx context.Context, path string, query url.Values) (*Respo
 	defer cancel()
 
 	u := c.baseURL + path
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, networkError(err)
-	}
-
-	c.setHeaders(req)
-
 	if len(query) > 0 {
-		req.URL.RawQuery = query.Encode()
+		u += "?" + query.Encode()
 	}
 
-	return c.doWithRetry(ctx, req)
+	return c.doWithRetry(ctx, http.MethodGet, u, nil)
 }
 
 // Post performs an authenticated POST request with a JSON body.
@@ -100,17 +92,7 @@ func (c *Client) Post(ctx context.Context, path string, body []byte) (*Response,
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	u := c.baseURL + path
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
-	if err != nil {
-		return nil, networkError(err)
-	}
-
-	c.setHeaders(req)
-	req.Header.Set("Content-Type", "application/json")
-
-	return c.doWithRetry(ctx, req)
+	return c.doWithRetry(ctx, http.MethodPost, c.baseURL+path, body)
 }
 
 // Put performs an authenticated PUT request with a JSON body.
@@ -118,17 +100,7 @@ func (c *Client) Put(ctx context.Context, path string, body []byte) (*Response, 
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	u := c.baseURL + path
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u, bytes.NewReader(body))
-	if err != nil {
-		return nil, networkError(err)
-	}
-
-	c.setHeaders(req)
-	req.Header.Set("Content-Type", "application/json")
-
-	return c.doWithRetry(ctx, req)
+	return c.doWithRetry(ctx, http.MethodPut, c.baseURL+path, body)
 }
 
 // Delete performs an authenticated DELETE request.
@@ -136,16 +108,7 @@ func (c *Client) Delete(ctx context.Context, path string) (*Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	u := c.baseURL + path
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
-	if err != nil {
-		return nil, networkError(err)
-	}
-
-	c.setHeaders(req)
-
-	return c.doWithRetry(ctx, req)
+	return c.doWithRetry(ctx, http.MethodDelete, c.baseURL+path, nil)
 }
 
 // setHeaders applies common headers to all API requests.
@@ -154,9 +117,10 @@ func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("User-Agent", "nightwatch-cli/"+c.version)
 }
 
-// doWithRetry executes the request, retrying on 429 responses with jittered
-// exponential backoff unless --no-retry is set.
-func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*Response, error) {
+// doWithRetry builds a fresh request on each attempt and retries on 429
+// responses with jittered exponential backoff unless --no-retry is set.
+// A fresh request is needed because the body reader is consumed on each attempt.
+func (c *Client) doWithRetry(ctx context.Context, method, u string, reqBody []byte) (*Response, error) {
 	var lastErr *APIError
 
 	attempts := 1 + c.maxRetries
@@ -165,8 +129,20 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*Response,
 	}
 
 	for attempt := range attempts {
-		// For POST/PUT retries, we need to reset the body reader.
-		// The original body was already consumed in the first attempt.
+		var bodyReader io.Reader
+		if reqBody != nil {
+			bodyReader = bytes.NewReader(reqBody)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, method, u, bodyReader)
+		if err != nil {
+			return nil, networkError(err)
+		}
+		c.setHeaders(req)
+		if reqBody != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			return nil, networkError(err)
