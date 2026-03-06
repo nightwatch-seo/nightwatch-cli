@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/nightwatch-io/nightwatch-cli/internal/client"
@@ -191,58 +192,51 @@ type dryRunRequest struct {
 	Body   any            `json:"body,omitempty"`
 }
 
+// resolveEndpoint returns endpoint unchanged if it is already an absolute URL,
+// otherwise it prepends the configured base URL.
+func resolveEndpoint(endpoint string) string {
+	if strings.HasPrefix(endpoint, "https://") || strings.HasPrefix(endpoint, "http://") {
+		return endpoint
+	}
+	return ResolvedConfig().BaseURL + endpoint
+}
+
 // printDryRunGet writes the resolved GET request to stdout.
 func printDryRunGet(cmd *cobra.Command, endpoint string, query url.Values) error {
-	cfg := ResolvedConfig()
-	fullURL := cfg.BaseURL + endpoint
-
 	out := dryRunRequest{
 		Method: "GET",
-		URL:    fullURL,
+		URL:    resolveEndpoint(endpoint),
 		Params: valuesToMap(query),
 	}
-
 	return encodeDryRun(cmd, out)
 }
 
 // printDryRunPost writes the resolved POST request to stdout.
 func printDryRunPost(cmd *cobra.Command, endpoint string, body any) error {
-	cfg := ResolvedConfig()
-	fullURL := cfg.BaseURL + endpoint
-
 	out := dryRunRequest{
 		Method: "POST",
-		URL:    fullURL,
+		URL:    resolveEndpoint(endpoint),
 		Body:   body,
 	}
-
 	return encodeDryRun(cmd, out)
 }
 
 // printDryRunPut writes the resolved PUT request to stdout.
 func printDryRunPut(cmd *cobra.Command, endpoint string, body any) error {
-	cfg := ResolvedConfig()
-	fullURL := cfg.BaseURL + endpoint
-
 	out := dryRunRequest{
 		Method: "PUT",
-		URL:    fullURL,
+		URL:    resolveEndpoint(endpoint),
 		Body:   body,
 	}
-
 	return encodeDryRun(cmd, out)
 }
 
 // printDryRunDelete writes the resolved DELETE request to stdout.
 func printDryRunDelete(cmd *cobra.Command, endpoint string) error {
-	cfg := ResolvedConfig()
-	fullURL := cfg.BaseURL + endpoint
-
 	out := dryRunRequest{
 		Method: "DELETE",
-		URL:    fullURL,
+		URL:    resolveEndpoint(endpoint),
 	}
-
 	return encodeDryRun(cmd, out)
 }
 
@@ -291,12 +285,38 @@ func handleAPIError(err error) error {
 }
 
 // parseResponseData unmarshals the API response body into an interface.
+// Returns nil for empty bodies (e.g. 204 No Content).
 func parseResponseData(body []byte) (any, error) {
+	if len(body) == 0 {
+		return nil, nil
+	}
 	var data any
 	if err := json.Unmarshal(body, &data); err != nil {
 		return nil, fmt.Errorf("failed to parse API response: %w", err)
 	}
 	return data, nil
+}
+
+// printResponse is the common parse-and-print pattern used by most commands.
+// It parses the API response body, prints it using the given printFn, and
+// returns nil. On parse failure, it prints a structured error and returns
+// an exitError.
+func printResponse(cmd *cobra.Command, body []byte, printFn func(w *cobra.Command, data any)) error {
+	data, err := parseResponseData(body)
+	if err != nil {
+		output.PrintErrorTyped(os.Stderr, err.Error(), 1, client.ErrorTypeClient)
+		return &exitError{code: 1}
+	}
+	printFn(cmd, data)
+	return nil
+}
+
+func printAsSingle(cmd *cobra.Command, data any) {
+	output.PrintSingle(cmd.OutOrStdout(), data)
+}
+
+func printAsList(cmd *cobra.Command, data any) {
+	output.PrintList(cmd.OutOrStdout(), data)
 }
 
 // validateDate checks that a date string is in YYYY-MM-DD format and

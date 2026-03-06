@@ -50,14 +50,7 @@ Example:
 			return handleAPIError(err)
 		}
 
-		data, err := parseResponseData(resp.Body)
-		if err != nil {
-			output.PrintErrorTyped(os.Stderr, err.Error(), 1, client.ErrorTypeClient)
-			return &exitError{code: 1}
-		}
-
-		output.PrintList(cmd.OutOrStdout(), data)
-		return nil
+		return printResponse(cmd, resp.Body, printAsList)
 	},
 }
 
@@ -87,14 +80,7 @@ Example:
 			return handleAPIError(err)
 		}
 
-		data, err := parseResponseData(resp.Body)
-		if err != nil {
-			output.PrintErrorTyped(os.Stderr, err.Error(), 1, client.ErrorTypeClient)
-			return &exitError{code: 1}
-		}
-
-		output.PrintSingle(cmd.OutOrStdout(), data)
-		return nil
+		return printResponse(cmd, resp.Body, printAsSingle)
 	},
 }
 
@@ -138,14 +124,7 @@ Example:
 			return handleAPIError(err)
 		}
 
-		data, err := parseResponseData(resp.Body)
-		if err != nil {
-			output.PrintErrorTyped(os.Stderr, err.Error(), 1, client.ErrorTypeClient)
-			return &exitError{code: 1}
-		}
-
-		output.PrintSingle(cmd.OutOrStdout(), data)
-		return nil
+		return printResponse(cmd, resp.Body, printAsSingle)
 	},
 }
 
@@ -192,14 +171,7 @@ Example:
 			return handleAPIError(err)
 		}
 
-		data, err := parseResponseData(resp.Body)
-		if err != nil {
-			output.PrintErrorTyped(os.Stderr, err.Error(), 1, client.ErrorTypeClient)
-			return &exitError{code: 1}
-		}
-
-		output.PrintSingle(cmd.OutOrStdout(), data)
-		return nil
+		return printResponse(cmd, resp.Body, printAsSingle)
 	},
 }
 

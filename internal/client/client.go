@@ -73,13 +73,22 @@ func New(opts Options) *Client {
 	}
 }
 
-// Get performs an authenticated GET request to the given API path (relative to
-// baseURL) with the provided query parameters.
+// resolve returns path unchanged if it is already an absolute URL,
+// otherwise it prepends baseURL.
+func (c *Client) resolve(path string) string {
+	if strings.HasPrefix(path, "https://") || strings.HasPrefix(path, "http://") {
+		return path
+	}
+	return c.baseURL + path
+}
+
+// Get performs an authenticated GET request. path can be relative (prepends
+// baseURL) or an absolute URL for endpoints on a different host.
 func (c *Client) Get(ctx context.Context, path string, query url.Values) (*Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	u := c.baseURL + path
+	u := c.resolve(path)
 	if len(query) > 0 {
 		u += "?" + query.Encode()
 	}
@@ -87,28 +96,31 @@ func (c *Client) Get(ctx context.Context, path string, query url.Values) (*Respo
 	return c.doWithRetry(ctx, http.MethodGet, u, nil)
 }
 
-// Post performs an authenticated POST request with a JSON body.
+// Post performs an authenticated POST request with a JSON body. path can be
+// relative or absolute.
 func (c *Client) Post(ctx context.Context, path string, body []byte) (*Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	return c.doWithRetry(ctx, http.MethodPost, c.baseURL+path, body)
+	return c.doWithRetry(ctx, http.MethodPost, c.resolve(path), body)
 }
 
-// Put performs an authenticated PUT request with a JSON body.
+// Put performs an authenticated PUT request with a JSON body. path can be
+// relative or absolute.
 func (c *Client) Put(ctx context.Context, path string, body []byte) (*Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	return c.doWithRetry(ctx, http.MethodPut, c.baseURL+path, body)
+	return c.doWithRetry(ctx, http.MethodPut, c.resolve(path), body)
 }
 
-// Delete performs an authenticated DELETE request.
+// Delete performs an authenticated DELETE request. path can be relative or
+// absolute.
 func (c *Client) Delete(ctx context.Context, path string) (*Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	return c.doWithRetry(ctx, http.MethodDelete, c.baseURL+path, nil)
+	return c.doWithRetry(ctx, http.MethodDelete, c.resolve(path), nil)
 }
 
 // setHeaders applies common headers to all API requests.

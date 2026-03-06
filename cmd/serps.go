@@ -2,10 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/nightwatch-io/nightwatch-cli/internal/client"
-	"github.com/nightwatch-io/nightwatch-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -49,14 +46,7 @@ Example:
 			return handleAPIError(err)
 		}
 
-		data, err := parseResponseData(resp.Body)
-		if err != nil {
-			output.PrintErrorTyped(os.Stderr, err.Error(), 1, client.ErrorTypeClient)
-			return &exitError{code: 1}
-		}
-
-		output.PrintSingle(cmd.OutOrStdout(), data)
-		return nil
+		return printResponse(cmd, resp.Body, printAsSingle)
 	},
 }
 

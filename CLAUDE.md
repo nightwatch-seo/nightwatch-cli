@@ -10,13 +10,13 @@
 - **CLI framework:** [cobra](https://github.com/spf13/cobra)
 - **Config format:** YAML (`gopkg.in/yaml.v3`)
 - **API docs:** https://docs.nightwatch.io/
-- **Architecture:** Follows the exact patterns of shovels-cli
+- **Architecture:** cobra command tree + internal packages for client, config, output
 
 ## Architecture
 
 ```
 cmd/            cobra command tree (one file per resource)
-  root.go       root command, global flags, helpers (dry-run, client, error handling)
+  root.go       root command, global flags, shared helpers
   groups.go     URL group CRUD
   urls.go       tracked URL CRUD
   keywords.go   keyword list/add/remove/update
@@ -55,8 +55,23 @@ internal/
 
 ## HTTP Methods
 
-Unlike shovels-cli (GET only), nightwatch-cli uses GET, POST, PUT, and DELETE.
+The HTTP client supports GET, POST, PUT, and DELETE.
 All POST/PUT requests send JSON bodies with `Content-Type: application/json`.
+
+## Multi-Host Support
+
+The HTTP client supports absolute URLs for endpoints on different hosts.
+Pass a full URL (starting with `https://`) instead of a relative path:
+
+```go
+// Relative path — prepends baseURL automatically
+cl.Get(ctx, "/url_groups", nil)
+
+// Absolute URL — used as-is, skips baseURL
+cl.Get(ctx, "https://other-api.nightwatch.io/v2/backlinks", nil)
+```
+
+The `resolveEndpoint()` helper in `cmd/root.go` applies the same logic for `--dry-run` output.
 
 ## Build
 
@@ -64,6 +79,18 @@ All POST/PUT requests send JSON bodies with `Content-Type: application/json`.
 go build -o nightwatch .
 ./nightwatch --help
 ```
+
+## Shared Helpers (cmd/root.go)
+
+| Helper | Purpose |
+|--------|---------|
+| `newClientFromFlags(cmd)` | Creates `client.Client` from resolved config + flags |
+| `handleAPIError(err)` | Translates `*client.APIError` to JSON stderr + exitError |
+| `printResponse(cmd, body, fn)` | Parses response body and prints via `printAsSingle` or `printAsList` |
+| `printDryRunGet/Post/Put/Delete` | Prints resolved request as JSON for `--dry-run` |
+| `validateDate(flag, value)` | Validates YYYY-MM-DD format |
+| `isDryRun(cmd)` | Checks `--dry-run` flag |
+| `resolveEndpoint(endpoint)` | Prepends baseURL unless endpoint is already absolute |
 
 ## Conventions
 
@@ -73,3 +100,11 @@ go build -o nightwatch .
 - API parameters use snake_case (e.g. `url_group_id`, `country_code`)
 - Wrap API responses: `{"data": ..., "meta": {...}}`
 - Errors: `{"error": "msg", "code": N, "error_type": "type"}`
+
+## Not Implemented (v1)
+
+These features are intentionally excluded from v1:
+- `--schema` flag (offline response schema introspection)
+- Auto-update mechanism
+- `--limit all` pagination abstraction
+- Credit tracking headers
