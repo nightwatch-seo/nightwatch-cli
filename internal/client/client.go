@@ -125,8 +125,15 @@ func (c *Client) Delete(ctx context.Context, path string) (*Response, error) {
 
 // setHeaders applies common headers to all API requests.
 func (c *Client) setHeaders(req *http.Request) {
-	req.Header.Set("Authorization", c.apiKey)
 	req.Header.Set("User-Agent", "nightwatch-cli/"+c.version)
+}
+
+// injectAccessToken appends the API key as an access_token query parameter
+// to the request URL. The Nightwatch API uses query-param auth.
+func (c *Client) injectAccessToken(req *http.Request) {
+	q := req.URL.Query()
+	q.Set("access_token", c.apiKey)
+	req.URL.RawQuery = q.Encode()
 }
 
 // doWithRetry builds a fresh request on each attempt and retries on 429
@@ -151,6 +158,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, u string, reqBody []by
 			return nil, networkError(err)
 		}
 		c.setHeaders(req)
+		c.injectAccessToken(req)
 		if reqBody != nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
